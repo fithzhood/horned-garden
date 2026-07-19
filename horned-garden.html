@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Horned Garden</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
+  <link rel="stylesheet" href="horned-garden.css?v=3">
+</head>
+<body>
+  <span class="vine tr" aria-hidden="true">❦</span>
+  <span class="vine bl" aria-hidden="true">❦</span>
+
+  <div class="app generating" id="app">
+    <header>
+      <p class="eyebrow">Witherbloom Homework</p>
+      <h1>Horned Garden</h1>
+    </header>
+
+    <div class="difficulty">
+      <input id="difficulty" type="range" min="0" max="2" step="1" value="0" aria-label="Difficulty">
+      <div class="diff-labels" id="diff-labels">
+        <span>Easy</span><span>Medium</span><span>Hard</span>
+      </div>
+    </div>
+
+    <div class="board-zone">
+      <p id="status">Generating&hellip;</p>
+      <div id="board-wrap">
+        <div id="grid"></div>
+        <div id="banner" hidden><span>Solved!</span></div>
+      </div>
+    </div>
+
+    <div id="palette">
+      <button type="button" class="pal-btn" data-type="1"></button>
+      <button type="button" class="pal-btn" data-type="2"></button>
+      <button type="button" class="pal-btn" data-type="3"></button>
+      <button type="button" class="pal-btn" data-type="4"></button>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="reset-btn" class="btn">Reset</button>
+      <button type="button" id="new-btn" class="btn primary">New Puzzle</button>
+    </div>
+  </div>
+
+  <script src="horned-garden.js?v=3"></script>
+</body>
+</html>
