@@ -18,7 +18,7 @@ function isAdjacentToAnyCreature(grid, row, col) {
       if (dr === 0 && dc === 0) continue;
       const r = row + dr, c = col + dc;
       if (r < 0 || c < 0 || r >= grid.length || c >= grid[0].length) continue;
-      if (grid[r][c] !== 0) return true;
+      if (grid[r][c] > 0) return true; // > 0: user marks are stored as -1
     }
   }
   return false;
@@ -204,7 +204,7 @@ function computeNeighborSum(grid, row, col) {
       if (dr === 0 && dc === 0) continue;
       const r = row + dr, c = col + dc;
       if (r < 0 || c < 0 || r >= grid.length || c >= grid[0].length) continue;
-      sum += grid[r][c];
+      if (grid[r][c] > 0) sum += grid[r][c]; // > 0: user marks are stored as -1
     }
   }
   return sum;
@@ -407,9 +407,14 @@ function init() {
   paletteBtns = Array.from(document.querySelectorAll('.pal-btn'));
 
   for (const btn of paletteBtns) {
-    const type = Number(btn.dataset.type);
-    btn.innerHTML = creatureIcon(type) + '<span class="pal-count" data-count="' + type + '">0/0</span>';
-    btn.addEventListener('click', () => selectType(type));
+    if (btn.dataset.type === 'mark') {
+      btn.innerHTML = '<span class="mark-glyph">❀</span><span class="pal-count">note</span>';
+      btn.addEventListener('click', () => selectType('mark'));
+    } else {
+      const type = Number(btn.dataset.type);
+      btn.innerHTML = creatureIcon(type) + '<span class="pal-count" data-count="' + type + '">0/0</span>';
+      btn.addEventListener('click', () => selectType(type));
+    }
   }
   sliderEl.addEventListener('input', () => {
     const next = DIFFICULTY_ORDER[Number(sliderEl.value)];
@@ -421,6 +426,11 @@ function init() {
   });
   newBtn.addEventListener('click', startNewPuzzle);
   resetBtn.addEventListener('click', resetPuzzle);
+  const helpBtn = document.getElementById('help-btn');
+  const rulesEl = document.getElementById('rules');
+  helpBtn.addEventListener('click', () => { rulesEl.hidden = false; });
+  document.getElementById('rules-close').addEventListener('click', () => { rulesEl.hidden = true; });
+  rulesEl.addEventListener('click', (e) => { if (e.target === rulesEl) rulesEl.hidden = true; });
   window.addEventListener('resize', applyCellSize);
 
   updateDiffLabels();
@@ -437,7 +447,7 @@ function selectType(type) {
   if (state.status !== 'playing') return;
   state.selectedType = type;
   for (const btn of paletteBtns) {
-    btn.classList.toggle('selected', Number(btn.dataset.type) === type);
+    btn.classList.toggle('selected', btn.dataset.type === String(type));
   }
 }
 
@@ -527,9 +537,13 @@ function handleCellClick(r, c) {
   if (state.status !== 'playing') return;
   const cell = cellEls[r][c];
   const current = userGrid[r][c];
-  if (current === state.selectedType) {
+  if (state.selectedType === 'mark') {
+    // Dark-flower note: "no creature here". Free to place anywhere, ignored
+    // by every rule check.
+    userGrid[r][c] = current === -1 ? 0 : -1;
+  } else if (current === state.selectedType) {
     userGrid[r][c] = 0;
-  } else if (current === 0 && isAdjacentToAnyCreature(userGrid, r, c)) {
+  } else if (current <= 0 && isAdjacentToAnyCreature(userGrid, r, c)) {
     cell.classList.remove('flash');
     void cell.offsetWidth;
     cell.classList.add('flash');
@@ -537,9 +551,16 @@ function handleCellClick(r, c) {
   } else {
     userGrid[r][c] = state.selectedType;
   }
-  cell.innerHTML = userGrid[r][c] === 0 ? '' : creatureIcon(userGrid[r][c]);
+  renderCell(r, c);
   updateFeedback();
   if (isBoardSolved()) showSolved();
+}
+
+function renderCell(r, c) {
+  const v = userGrid[r][c];
+  if (v === 0) cellEls[r][c].innerHTML = '';
+  else if (v === -1) cellEls[r][c].innerHTML = '<span class="mark">❀</span>';
+  else cellEls[r][c].innerHTML = creatureIcon(v);
 }
 
 function updateFeedback() {

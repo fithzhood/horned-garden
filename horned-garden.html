@@ -8,13 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
-  <link rel="stylesheet" href="horned-garden.css?v=3">
+  <link rel="stylesheet" href="horned-garden.css?v=4">
 </head>
 <body>
   <span class="vine tr" aria-hidden="true">❦</span>
   <span class="vine bl" aria-hidden="true">❦</span>
 
   <div class="app generating" id="app">
+    <button type="button" id="help-btn" class="help-btn" aria-label="How to play">?</button>
     <header>
       <p class="eyebrow">Witherbloom Homework</p>
       <h1>Horned Garden</h1>
@@ -40,14 +41,31 @@
       <button type="button" class="pal-btn" data-type="2"></button>
       <button type="button" class="pal-btn" data-type="3"></button>
       <button type="button" class="pal-btn" data-type="4"></button>
+      <button type="button" class="pal-btn" data-type="mark" aria-label="Mark empty squares"></button>
     </div>
 
     <div class="actions">
       <button type="button" id="reset-btn" class="btn">Reset</button>
       <button type="button" id="new-btn" class="btn primary">New Puzzle</button>
     </div>
+
+    <div id="rules" hidden>
+      <div class="rules-card">
+        <h2>How to play</h2>
+        <ul>
+          <li>The garden hides horned creatures: <strong>Unicorns</strong> (1 horn), <strong>Bicorns</strong> (2), <strong>Tricorns</strong> (3) and <strong>Quadricorns</strong> (4). The counters in the palette show how many of each must be placed.</li>
+          <li>Creatures can <strong>never touch</strong> each other — not even diagonally.</li>
+          <li>The figures outside the garden count the creatures in that <strong>row or column</strong>. No figures means no creatures there.</li>
+          <li>A <strong>number</strong> inside the garden is the total of horns in the squares around it. Numbers and flowers are fixed — nothing can be placed on them.</li>
+          <li>Tap a square to place the selected creature; tap it again with the same type selected to remove it.</li>
+          <li>Select the <strong>dark flower</strong> to mark squares that hold no creature. It is only a note: it does not affect the rules.</li>
+          <li>Every puzzle has exactly <strong>one solution</strong>. The moment the whole garden obeys every rule, it blooms.</li>
+        </ul>
+        <button type="button" id="rules-close" class="btn primary">Got it</button>
+      </div>
+    </div>
   </div>
 
-  <script src="horned-garden.js?v=3"></script>
+  <script src="horned-garden.js?v=4"></script>
 </body>
 </html>
