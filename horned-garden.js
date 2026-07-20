@@ -204,7 +204,8 @@ function computeNeighborSum(grid, row, col) {
       if (dr === 0 && dc === 0) continue;
       const r = row + dr, c = col + dc;
       if (r < 0 || c < 0 || r >= grid.length || c >= grid[0].length) continue;
-      if (grid[r][c] > 0) sum += grid[r][c]; // > 0: user marks are stored as -1
+      // only real creatures have horns: marks are -1, the ? placeholder is 5
+      if (grid[r][c] >= 1 && grid[r][c] <= 4) sum += grid[r][c];
     }
   }
   return sum;
@@ -343,7 +344,9 @@ if (typeof window !== 'undefined') {
 
 /* ===================== UI ===================== */
 
-const TYPE_COLORS = { 1: '#6fa055', 2: '#4e8f89', 3: '#946cab', 4: '#cd9143' };
+// Type 5 is the hornless "?" placeholder: an animal not yet identified.
+const TYPE_COLORS = { 1: '#6fa055', 2: '#4e8f89', 3: '#946cab', 4: '#cd9143', 5: '#8b8371' };
+const PLACEHOLDER = 5;
 
 function creatureIcon(type) {
   const color = TYPE_COLORS[type];
@@ -351,7 +354,7 @@ function creatureIcon(type) {
   const angles = [];
   if (type === 1) {
     angles.push(0);
-  } else {
+  } else if (type >= 2 && type <= 4) {
     for (let i = 0; i < type; i++) angles.push(-55 + i * (110 / (type - 1)));
   }
   let horns = '';
@@ -365,12 +368,13 @@ function creatureIcon(type) {
       tx.toFixed(1) + ',' + ty.toFixed(1) + ' ' +
       bx2.toFixed(1) + ',' + by2.toFixed(1) + '" fill="' + color + '"/>';
   }
+  const label = type === PLACEHOLDER ? '?' : type;
   return '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
     horns +
     '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + color + '"/>' +
     '<circle cx="15.5" cy="20.5" r="1.7" fill="#fff"/>' +
     '<circle cx="24.5" cy="20.5" r="1.7" fill="#fff"/>' +
-    '<text x="20" y="31" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">' + type + '</text>' +
+    '<text x="20" y="31" text-anchor="middle" font-size="9" font-weight="700" fill="#fff">' + label + '</text>' +
     '</svg>';
 }
 
@@ -410,6 +414,9 @@ function init() {
     if (btn.dataset.type === 'mark') {
       btn.innerHTML = '<span class="mark-glyph">❀</span><span class="pal-count">note</span>';
       btn.addEventListener('click', () => selectType('mark'));
+    } else if (btn.dataset.type === String(PLACEHOLDER)) {
+      btn.innerHTML = creatureIcon(PLACEHOLDER) + '<span class="pal-count">t.b.d.</span>';
+      btn.addEventListener('click', () => selectType(PLACEHOLDER));
     } else {
       const type = Number(btn.dataset.type);
       btn.innerHTML = creatureIcon(type) + '<span class="pal-count" data-count="' + type + '">0/0</span>';
@@ -429,6 +436,8 @@ function init() {
   const helpBtn = document.getElementById('help-btn');
   const rulesEl = document.getElementById('rules');
   helpBtn.addEventListener('click', () => { rulesEl.hidden = false; });
+  // tap the Solved! banner to admire the completed garden underneath
+  bannerEl.addEventListener('click', () => { bannerEl.hidden = true; });
   document.getElementById('rules-close').addEventListener('click', () => { rulesEl.hidden = true; });
   rulesEl.addEventListener('click', (e) => { if (e.target === rulesEl) rulesEl.hidden = true; });
   window.addEventListener('resize', applyCellSize);
@@ -535,20 +544,15 @@ function buildBoard() {
 
 function handleCellClick(r, c) {
   if (state.status !== 'playing') return;
-  const cell = cellEls[r][c];
   const current = userGrid[r][c];
   if (state.selectedType === 'mark') {
-    // Dark-flower note: "no creature here". Free to place anywhere, ignored
-    // by every rule check.
+    // Dark-flower note: "no creature here". Ignored by every rule check.
     userGrid[r][c] = current === -1 ? 0 : -1;
   } else if (current === state.selectedType) {
     userGrid[r][c] = 0;
-  } else if (current <= 0 && isAdjacentToAnyCreature(userGrid, r, c)) {
-    cell.classList.remove('flash');
-    void cell.offsetWidth;
-    cell.classList.add('flash');
-    return;
   } else {
+    // Placement is never blocked: broken rules light up red instead
+    // (adjacent animals, exceeded counts, exceeded clue sums).
     userGrid[r][c] = state.selectedType;
   }
   renderCell(r, c);
@@ -571,7 +575,15 @@ function updateFeedback() {
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       const v = userGrid[r][c];
-      if (v > 0) { rowUsed[r]++; colUsed[c]++; typeUsed[v]++; }
+      if (v > 0) { rowUsed[r]++; colUsed[c]++; }   // the ? placeholder is an animal too
+      if (v >= 1 && v <= 4) typeUsed[v]++;
+    }
+  }
+  // adjacency violations: every animal touching another lights up red
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const bad = userGrid[r][c] > 0 && isAdjacentToAnyCreature(userGrid, r, c);
+      cellEls[r][c].classList.toggle('bad', bad);
     }
   }
   for (let r = 0; r < size; r++) {
@@ -591,12 +603,16 @@ function updateFeedback() {
     const el = document.querySelector('[data-count="' + t + '"]');
     el.textContent = typeUsed[t] + '/' + puzzle.typeCounts[t];
     el.classList.toggle('over', typeUsed[t] > puzzle.typeCounts[t]);
+    const done = typeUsed[t] === puzzle.typeCounts[t];
+    el.classList.toggle('done', done);
+    el.closest('.pal-btn').classList.toggle('done', done);
   }
   for (const key of Object.keys(puzzle.clueCells)) {
     const parts = key.split(',');
     const r = Number(parts[0]), c = Number(parts[1]);
     const sum = computeNeighborSum(userGrid, r, c);
     cellEls[r][c].classList.toggle('over', sum > puzzle.clueCells[key]);
+    cellEls[r][c].classList.toggle('done', sum === puzzle.clueCells[key]);
   }
 }
 
@@ -608,7 +624,13 @@ function isBoardSolved() {
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       const v = userGrid[r][c];
-      if (v > 0) { rowUsed[r]++; colUsed[c]++; typeUsed[v]++; }
+      if (v === PLACEHOLDER) return false; // every ? must be identified
+      if (v > 0) {
+        if (isAdjacentToAnyCreature(userGrid, r, c)) return false;
+        rowUsed[r]++;
+        colUsed[c]++;
+        typeUsed[v]++;
+      }
     }
   }
   for (let r = 0; r < size; r++) if (rowUsed[r] !== puzzle.rowCounts[r]) return false;
