@@ -546,6 +546,7 @@ function applyCellSize() {
 
 function startNewPuzzle() {
   state.mode = 'generating';
+  clearBloom();
   appEl.classList.add('generating');
   appEl.classList.remove('solved', 'create');
   statusEl.hidden = false;
@@ -725,10 +726,51 @@ function isBoardSolved() {
   return true;
 }
 
+/* Garden bloom: flowers sprout on the background outside the grid. */
+const BLOOM_GLYPHS = ['❀', '✿', '❁', '✾'];
+const BLOOM_COLORS = ['#94b177', '#c9a35c', '#9ee66a', '#ece5d0', '#7ba05e', '#e0bd77'];
+
+function spawnBloom() {
+  const bloom = document.getElementById('bloom');
+  bloom.innerHTML = '';
+  // sprout only in genuinely empty background areas: keep clear of the whole UI
+  const rects = ['#board-wrap', '#palette', '#actions', 'header', '.difficulty']
+    .map(sel => document.querySelector(sel))
+    .filter(el => el !== null)
+    .map(el => el.getBoundingClientRect());
+  const clear = (x, y) => rects.every(b =>
+    x < b.left - 12 || x > b.right + 12 || y < b.top - 12 || y > b.bottom + 12);
+  const W = window.innerWidth, H = window.innerHeight;
+  for (let i = 0; i < 28; i++) {
+    let x = 0, y = 0, outside = false;
+    for (let tries = 0; tries < 16 && !outside; tries++) {
+      x = Math.random() * W;
+      y = Math.random() * H;
+      outside = clear(x, y);
+    }
+    if (!outside) continue;
+    const f = document.createElement('span');
+    f.className = 'bloom-flower';
+    f.textContent = BLOOM_GLYPHS[Math.floor(Math.random() * BLOOM_GLYPHS.length)];
+    f.style.left = x.toFixed(0) + 'px';
+    f.style.top = y.toFixed(0) + 'px';
+    f.style.fontSize = (14 + Math.random() * 26).toFixed(0) + 'px';
+    f.style.color = BLOOM_COLORS[Math.floor(Math.random() * BLOOM_COLORS.length)];
+    f.style.setProperty('--rot', (Math.random() * 50 - 25).toFixed(0) + 'deg');
+    f.style.animationDelay = (Math.random() * 1.4).toFixed(2) + 's';
+    bloom.appendChild(f);
+  }
+}
+
+function clearBloom() {
+  document.getElementById('bloom').innerHTML = '';
+}
+
 function showSolved() {
   state.mode = 'solved';
   appEl.classList.add('solved');
   bannerEl.hidden = false;
+  spawnBloom();
 }
 
 function resetPuzzle() {
@@ -743,6 +785,7 @@ function resetPuzzle() {
   }
   bannerEl.hidden = true;
   appEl.classList.remove('solved');
+  clearBloom();
   if (state.mode === 'solved') state.mode = 'play';
   updateFeedback();
 }
@@ -757,6 +800,7 @@ function enterCreate() {
 function resumeCreate() {
   state.mode = 'create';
   puzzle = null;
+  clearBloom();
   appEl.classList.remove('generating', 'solved');
   appEl.classList.add('create');
   statusEl.hidden = true;

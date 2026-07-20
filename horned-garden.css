@@ -55,6 +55,35 @@ body {
 .vine.tr { top: -18px; right: -10px; transform: rotate(24deg); }
 .vine.bl { bottom: -20px; left: -12px; transform: rotate(-155deg); }
 
+/* Garden bloom: flowers sprout on the background when a puzzle is solved. */
+#bloom {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.bloom-flower {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(1) rotate(var(--rot, 0deg));
+  animation: sprout 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  text-shadow: 0 0 12px rgba(158, 230, 106, 0.22);
+  user-select: none;
+  line-height: 1;
+}
+
+@keyframes sprout {
+  from {
+    transform: translate(-50%, -50%) scale(0) rotate(calc(var(--rot, 0deg) - 70deg));
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1) rotate(var(--rot, 0deg));
+    opacity: 1;
+  }
+}
+
 .app {
   position: relative;
   z-index: 1;
