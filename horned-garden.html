@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
-  <link rel="stylesheet" href="horned-garden.css?v=5">
+  <link rel="stylesheet" href="horned-garden.css?v=6">
 </head>
 <body>
   <span class="vine tr" aria-hidden="true">❦</span>
@@ -36,19 +36,9 @@
       </div>
     </div>
 
-    <div id="palette">
-      <button type="button" class="pal-btn" data-type="1"></button>
-      <button type="button" class="pal-btn" data-type="2"></button>
-      <button type="button" class="pal-btn" data-type="3"></button>
-      <button type="button" class="pal-btn" data-type="4"></button>
-      <button type="button" class="pal-btn" data-type="5" aria-label="Unidentified animal placeholder"></button>
-      <button type="button" class="pal-btn" data-type="mark" aria-label="Mark empty squares"></button>
-    </div>
+    <div id="palette"></div>
 
-    <div class="actions">
-      <button type="button" id="reset-btn" class="btn">Reset</button>
-      <button type="button" id="new-btn" class="btn primary">New Puzzle</button>
-    </div>
+    <div class="actions" id="actions"></div>
 
     <div id="rules" hidden>
       <div class="rules-card">
@@ -61,13 +51,14 @@
           <li>Tap a square to place the selected creature; tap it again with the same type selected to remove it. Wrong placements are never blocked — the broken rule simply <strong>lights up red</strong>.</li>
           <li>The hornless <strong>?</strong> animal is a placeholder: an animal you have not identified yet. It counts as an animal on the board, but the garden only blooms once every <strong>?</strong> has been given its horns.</li>
           <li>Select the <strong>dark flower</strong> to mark squares that hold no creature. It is only a note: it does not affect the rules.</li>
-          <li>Every puzzle has exactly <strong>one solution</strong>. The moment the whole garden obeys every rule, it blooms.</li>
+          <li>Every generated puzzle has exactly <strong>one solution</strong>. The moment the whole garden obeys every rule, it blooms.</li>
+          <li>Tap <strong>✎ Create</strong> to build your own garden: place creatures, flowers and number clues, then <strong>▶ Test</strong> to play it freely. In your own gardens there are no checks — the design is yours.</li>
         </ul>
         <button type="button" id="rules-close" class="btn primary">Got it</button>
       </div>
     </div>
   </div>
 
-  <script src="horned-garden.js?v=5"></script>
+  <script src="horned-garden.js?v=6"></script>
 </body>
 </html>

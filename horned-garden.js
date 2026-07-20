@@ -391,13 +391,18 @@ function headerGlyphs(count) {
   return out;
 }
 
-const state = { difficulty: 'easy', selectedType: 1, status: 'generating' };
-let puzzle = null;
-let userGrid = null;
+
+/* ===================== UI ===================== */
+
+// state.mode: 'generating' | 'play' | 'solved' | 'create' | 'test'
+const state = { difficulty: 'easy', selectedType: 1, mode: 'generating' };
+let puzzle = null;      // active puzzle in play/test
+let userGrid = null;    // player's placements in play/test
+let createGrid = null;  // authoring grid in create: 0 empty, 1-4 creature, 'F' flower, 'C' clue
 let cellEls = [];
 let rowHeaderEls = [];
 let colHeaderEls = [];
-let appEl, gridEl, statusEl, bannerEl, sliderEl, resetBtn, newBtn, paletteBtns, diffLabelEls;
+let appEl, gridEl, statusEl, bannerEl, sliderEl, paletteEl, actionsEl, paletteBtns, diffLabelEls;
 
 function init() {
   appEl = document.getElementById('app');
@@ -405,41 +410,25 @@ function init() {
   statusEl = document.getElementById('status');
   bannerEl = document.getElementById('banner');
   sliderEl = document.getElementById('difficulty');
-  resetBtn = document.getElementById('reset-btn');
-  newBtn = document.getElementById('new-btn');
+  paletteEl = document.getElementById('palette');
+  actionsEl = document.getElementById('actions');
   diffLabelEls = Array.from(document.querySelectorAll('#diff-labels span'));
-  paletteBtns = Array.from(document.querySelectorAll('.pal-btn'));
 
-  for (const btn of paletteBtns) {
-    if (btn.dataset.type === 'mark') {
-      btn.innerHTML = '<span class="mark-glyph">❀</span><span class="pal-count">note</span>';
-      btn.addEventListener('click', () => selectType('mark'));
-    } else if (btn.dataset.type === String(PLACEHOLDER)) {
-      btn.innerHTML = creatureIcon(PLACEHOLDER) + '<span class="pal-count">t.b.d.</span>';
-      btn.addEventListener('click', () => selectType(PLACEHOLDER));
-    } else {
-      const type = Number(btn.dataset.type);
-      btn.innerHTML = creatureIcon(type) + '<span class="pal-count" data-count="' + type + '">0/0</span>';
-      btn.addEventListener('click', () => selectType(type));
-    }
-  }
   sliderEl.addEventListener('input', () => {
     const next = DIFFICULTY_ORDER[Number(sliderEl.value)];
     if (next !== state.difficulty) {
       state.difficulty = next;
-      startNewPuzzle();
+      if (state.mode === 'create') enterCreate();
+      else startNewPuzzle();
     }
     updateDiffLabels();
   });
-  newBtn.addEventListener('click', startNewPuzzle);
-  resetBtn.addEventListener('click', resetPuzzle);
-  const helpBtn = document.getElementById('help-btn');
   const rulesEl = document.getElementById('rules');
-  helpBtn.addEventListener('click', () => { rulesEl.hidden = false; });
-  // tap the Solved! banner to admire the completed garden underneath
-  bannerEl.addEventListener('click', () => { bannerEl.hidden = true; });
+  document.getElementById('help-btn').addEventListener('click', () => { rulesEl.hidden = false; });
   document.getElementById('rules-close').addEventListener('click', () => { rulesEl.hidden = true; });
   rulesEl.addEventListener('click', (e) => { if (e.target === rulesEl) rulesEl.hidden = true; });
+  // tap the Solved! banner to admire the completed garden underneath
+  bannerEl.addEventListener('click', () => { bannerEl.hidden = true; });
   window.addEventListener('resize', applyCellSize);
 
   updateDiffLabels();
@@ -452,45 +441,138 @@ function updateDiffLabels() {
   }
 }
 
+function currentSize() {
+  return puzzle ? puzzle.size : DIFFICULTIES[state.difficulty].size;
+}
+
+/* ---------- palette ---------- */
+
+function makePalBtn(kind) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pal-btn';
+  btn.dataset.type = String(kind);
+  if (kind === 'mark') {
+    btn.innerHTML = '<span class="mark-glyph">❀</span>';
+    btn.setAttribute('aria-label', 'Mark empty square');
+  } else if (kind === 'flower') {
+    btn.innerHTML = '<span class="flower-glyph">❀</span>';
+    btn.setAttribute('aria-label', 'Place a flower');
+  } else if (kind === 'clue') {
+    btn.innerHTML = '<span class="clue-glyph">∑</span>';
+    btn.setAttribute('aria-label', 'Place a number clue');
+  } else if (kind === PLACEHOLDER) {
+    btn.innerHTML = creatureIcon(PLACEHOLDER);
+    btn.setAttribute('aria-label', 'Unidentified animal');
+  } else {
+    btn.innerHTML = creatureIcon(kind) + '<span class="pal-count" data-count="' + kind + '"></span>';
+    btn.setAttribute('aria-label', 'Creature with ' + kind + ' horns');
+  }
+  btn.addEventListener('click', () => selectType(kind));
+  return btn;
+}
+
+function buildPalette() {
+  paletteEl.innerHTML = '';
+  const row1 = document.createElement('div');
+  row1.className = 'pal-row';
+  for (let t = 1; t <= 4; t++) row1.appendChild(makePalBtn(t));
+  const row2 = document.createElement('div');
+  row2.className = 'pal-row';
+  if (state.mode === 'create') {
+    row2.appendChild(makePalBtn('flower'));
+    row2.appendChild(makePalBtn('clue'));
+  } else {
+    row2.appendChild(makePalBtn(PLACEHOLDER));
+    row2.appendChild(makePalBtn('mark'));
+  }
+  paletteEl.append(row1, row2);
+  paletteBtns = Array.from(paletteEl.querySelectorAll('.pal-btn'));
+}
+
 function selectType(type) {
-  if (state.status !== 'playing') return;
+  if (state.mode === 'generating' || state.mode === 'solved') return;
   state.selectedType = type;
   for (const btn of paletteBtns) {
     btn.classList.toggle('selected', btn.dataset.type === String(type));
   }
 }
 
+/* ---------- actions ---------- */
+
+function mkBtn(label, cls, fn) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = cls;
+  b.textContent = label;
+  b.addEventListener('click', fn);
+  return b;
+}
+
+function buildActions() {
+  actionsEl.innerHTML = '';
+  if (state.mode === 'create') {
+    actionsEl.append(
+      mkBtn('Clear', 'btn', clearCreate),
+      mkBtn('▶ Test', 'btn primary', enterTest),
+      mkBtn('Exit', 'btn', startNewPuzzle)
+    );
+  } else if (state.mode === 'test') {
+    actionsEl.append(
+      mkBtn('Reset', 'btn', resetPuzzle),
+      mkBtn('◀ Edit', 'btn primary', resumeCreate)
+    );
+  } else {
+    actionsEl.append(
+      mkBtn('Reset', 'btn', resetPuzzle),
+      mkBtn('New Puzzle', 'btn primary', startNewPuzzle),
+      mkBtn('✎ Create', 'btn', enterCreate)
+    );
+  }
+}
+
+function applyCellSize() {
+  const size = currentSize();
+  // Fit the board in both directions: single screen, no scroll. Reserve room
+  // for header, slider, the two-row palette and the actions row.
+  const availW = Math.min(window.innerWidth, 560) - 48;
+  const availH = Math.max(window.innerHeight - 340, 170);
+  const per = Math.min(availW, availH) / (size + 1);
+  const cell = Math.max(24, Math.min(52, Math.floor(per) - 3));
+  gridEl.style.setProperty('--cell', cell + 'px');
+}
+
+/* ===================== Play / Test ===================== */
+
 function startNewPuzzle() {
-  state.status = 'generating';
+  state.mode = 'generating';
   appEl.classList.add('generating');
-  appEl.classList.remove('solved');
+  appEl.classList.remove('solved', 'create');
   statusEl.hidden = false;
   bannerEl.hidden = true;
   sliderEl.disabled = true;
   gridEl.innerHTML = '';
+  paletteEl.innerHTML = '';
+  actionsEl.innerHTML = '';
   setTimeout(() => {
     puzzle = generatePuzzle(state.difficulty);
-    userGrid = [];
-    for (let r = 0; r < puzzle.size; r++) userGrid.push(new Array(puzzle.size).fill(0));
-    state.status = 'playing';
+    userGrid = blankGrid(puzzle.size);
+    state.mode = 'play';
     appEl.classList.remove('generating');
     statusEl.hidden = true;
     sliderEl.disabled = false;
+    buildPalette();
+    selectType(1);
+    buildActions();
     buildBoard();
-    selectType(state.selectedType);
     updateFeedback();
   }, 30);
 }
 
-function applyCellSize() {
-  if (!puzzle) return;
-  // Fit the board in both directions: the app is a single screen with no
-  // scroll, so subtract the fixed chrome (header, slider, palette, actions).
-  const availW = Math.min(window.innerWidth, 560) - 48;
-  const availH = Math.max(window.innerHeight - 300, 180);
-  const per = Math.min(availW, availH) / (puzzle.size + 1);
-  const cell = Math.max(24, Math.min(52, Math.floor(per) - 3));
-  gridEl.style.setProperty('--cell', cell + 'px');
+function blankGrid(size) {
+  const g = [];
+  for (let r = 0; r < size; r++) g.push(new Array(size).fill(0));
+  return g;
 }
 
 function buildBoard() {
@@ -543,7 +625,7 @@ function buildBoard() {
 }
 
 function handleCellClick(r, c) {
-  if (state.status !== 'playing') return;
+  if (state.mode !== 'play' && state.mode !== 'test') return;
   const current = userGrid[r][c];
   if (state.selectedType === 'mark') {
     // Dark-flower note: "no creature here". Ignored by every rule check.
@@ -551,13 +633,12 @@ function handleCellClick(r, c) {
   } else if (current === state.selectedType) {
     userGrid[r][c] = 0;
   } else {
-    // Placement is never blocked: broken rules light up red instead
-    // (adjacent animals, exceeded counts, exceeded clue sums).
+    // Placement is never blocked: broken rules light up red instead.
     userGrid[r][c] = state.selectedType;
   }
   renderCell(r, c);
   updateFeedback();
-  if (isBoardSolved()) showSolved();
+  if (state.mode === 'play' && isBoardSolved()) showSolved();
 }
 
 function renderCell(r, c) {
@@ -590,7 +671,6 @@ function updateFeedback() {
     const over = rowUsed[r] > puzzle.rowCounts[r];
     rowHeaderEls[r].classList.toggle('ok', rowUsed[r] === puzzle.rowCounts[r]);
     rowHeaderEls[r].classList.toggle('over', over);
-    // A zero row shows no figures, so an overcount there needs an explicit mark.
     if (puzzle.rowCounts[r] === 0) rowHeaderEls[r].textContent = over ? '✕' : '';
   }
   for (let c = 0; c < size; c++) {
@@ -601,9 +681,11 @@ function updateFeedback() {
   }
   for (let t = 1; t <= 4; t++) {
     const el = document.querySelector('[data-count="' + t + '"]');
-    el.textContent = typeUsed[t] + '/' + puzzle.typeCounts[t];
-    el.classList.toggle('over', typeUsed[t] > puzzle.typeCounts[t]);
-    const done = typeUsed[t] === puzzle.typeCounts[t];
+    if (!el) continue;
+    const remaining = puzzle.typeCounts[t] - typeUsed[t]; // animals of this type still to place
+    el.textContent = remaining;
+    el.classList.toggle('over', remaining < 0);
+    const done = remaining === 0 && puzzle.typeCounts[t] > 0;
     el.classList.toggle('done', done);
     el.closest('.pal-btn').classList.toggle('done', done);
   }
@@ -644,13 +726,13 @@ function isBoardSolved() {
 }
 
 function showSolved() {
-  state.status = 'solved';
+  state.mode = 'solved';
   appEl.classList.add('solved');
   bannerEl.hidden = false;
 }
 
 function resetPuzzle() {
-  if (!puzzle || state.status === 'generating') return;
+  if (!puzzle) return;
   for (let r = 0; r < puzzle.size; r++) {
     for (let c = 0; c < puzzle.size; c++) {
       if (userGrid[r][c] !== 0) {
@@ -661,12 +743,162 @@ function resetPuzzle() {
   }
   bannerEl.hidden = true;
   appEl.classList.remove('solved');
-  state.status = 'playing';
+  if (state.mode === 'solved') state.mode = 'play';
   updateFeedback();
 }
 
+/* ===================== Create ===================== */
+
+function enterCreate() {
+  createGrid = blankGrid(DIFFICULTIES[state.difficulty].size);
+  resumeCreate();
+}
+
+function resumeCreate() {
+  state.mode = 'create';
+  puzzle = null;
+  appEl.classList.remove('generating', 'solved');
+  appEl.classList.add('create');
+  statusEl.hidden = true;
+  bannerEl.hidden = true;
+  sliderEl.disabled = false;
+  buildPalette();
+  selectType(1);
+  buildActions();
+  buildCreateBoard();
+}
+
+function clearCreate() {
+  createGrid = blankGrid(DIFFICULTIES[state.difficulty].size);
+  renderCreateAll();
+}
+
+function buildCreateBoard() {
+  const size = DIFFICULTIES[state.difficulty].size;
+  applyCellSize();
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = 'repeat(' + (size + 1) + ', var(--cell))';
+  cellEls = [];
+  rowHeaderEls = [];
+  colHeaderEls = [];
+
+  const corner = document.createElement('div');
+  corner.className = 'corner';
+  gridEl.appendChild(corner);
+  for (let c = 0; c < size; c++) {
+    const h = document.createElement('div');
+    h.className = 'col-header';
+    colHeaderEls.push(h);
+    gridEl.appendChild(h);
+  }
+  for (let r = 0; r < size; r++) {
+    const h = document.createElement('div');
+    h.className = 'row-header';
+    rowHeaderEls.push(h);
+    gridEl.appendChild(h);
+    const rowEls = [];
+    for (let c = 0; c < size; c++) {
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'cell';
+      cell.addEventListener('click', handleCreateClick.bind(null, r, c));
+      rowEls.push(cell);
+      gridEl.appendChild(cell);
+    }
+    cellEls.push(rowEls);
+  }
+  renderCreateAll();
+}
+
+function handleCreateClick(r, c) {
+  const cur = createGrid[r][c];
+  const sel = state.selectedType;
+  let val;
+  if (sel === 'flower') val = 'F';
+  else if (sel === 'clue') val = 'C';
+  else val = sel; // 1-4
+  createGrid[r][c] = (cur === val) ? 0 : val;
+  // clue values depend on neighbouring creatures, so refresh the whole board
+  renderCreateAll();
+}
+
+function createClueValue(r, c) {
+  let s = 0;
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = r + dr, nc = c + dc;
+      if (nr < 0 || nc < 0 || nr >= createGrid.length || nc >= createGrid.length) continue;
+      const nv = createGrid[nr][nc];
+      if (nv >= 1 && nv <= 4) s += nv;
+    }
+  }
+  return s;
+}
+
+function renderCreateAll() {
+  const size = createGrid.length;
+  const rowC = new Array(size).fill(0);
+  const colC = new Array(size).fill(0);
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (createGrid[r][c] >= 1 && createGrid[r][c] <= 4) { rowC[r]++; colC[c]++; }
+    }
+  }
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const el = cellEls[r][c];
+      const v = createGrid[r][c];
+      if (v >= 1 && v <= 4) { el.className = 'cell'; el.innerHTML = creatureIcon(v); }
+      else if (v === 'F') { el.className = 'cell flower'; el.textContent = '❀'; }
+      else if (v === 'C') { el.className = 'cell clue'; el.textContent = createClueValue(r, c); }
+      else { el.className = 'cell'; el.innerHTML = ''; }
+    }
+  }
+  for (let r = 0; r < size; r++) rowHeaderEls[r].innerHTML = headerGlyphs(rowC[r]);
+  for (let c = 0; c < size; c++) colHeaderEls[c].innerHTML = headerGlyphs(colC[c]);
+}
+
+// Build a playable puzzle from the authored grid — no feasibility or
+// uniqueness check, the author owns the design — and free-play it.
+function enterTest() {
+  const size = createGrid.length;
+  const solution = blankGrid(size);
+  const clueCells = {};
+  const flowerCells = {};
+  const rowCounts = new Array(size).fill(0);
+  const colCounts = new Array(size).fill(0);
+  const typeCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const v = createGrid[r][c];
+      if (v >= 1 && v <= 4) { solution[r][c] = v; rowCounts[r]++; colCounts[c]++; typeCounts[v]++; }
+    }
+  }
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      const v = createGrid[r][c];
+      if (v === 'C') clueCells[r + ',' + c] = createClueValue(r, c);
+      else if (v === 'F') flowerCells[r + ',' + c] = true;
+    }
+  }
+  puzzle = { size, solution, clueCells, flowerCells, rowCounts, colCounts, typeCounts };
+  userGrid = blankGrid(size);
+  state.mode = 'test';
+  appEl.classList.remove('create', 'solved', 'generating');
+  buildPalette();
+  selectType(1);
+  buildActions();
+  buildBoard();
+  updateFeedback();
+}
+
+/* ===================== Boot ===================== */
+
 if (typeof window !== 'undefined') {
-  window.HG.debug = () => ({ puzzle, userGrid, state });
+  window.HG = window.HG || {};
+  window.HG.debug = () => ({ puzzle, userGrid, createGrid, state });
+  window.HG.ui = { enterCreate, resumeCreate, enterTest, clearCreate, startNewPuzzle, selectType };
 }
 
 function isCapacitorNative() {
