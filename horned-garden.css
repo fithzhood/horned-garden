@@ -467,6 +467,22 @@ h1 {
 .pal-count.over { color: var(--red); font-weight: 700; }
 .pal-count.done { color: #cfeeb6; font-weight: 700; }
 
+/* Create-mode species stepper: the count the author is dialling in. */
+.pal-count.step {
+  color: var(--gold-bright);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.pal-btn.stepper::after {
+  content: '+';
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  font-size: 0.7rem;
+  color: var(--gold-dim);
+}
+.pal-btn.stepper { position: relative; }
+
 @media (max-width: 430px) {
   #palette { gap: 6px; }
   .pal-btn { min-width: 50px; min-height: 54px; padding: 6px 8px 4px; }

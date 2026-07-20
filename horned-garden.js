@@ -401,6 +401,7 @@ let userGrid = null;    // player's placements in play/test
 let createGrid = null;      // authoring grid: 0 empty, 'F' flower, {v:n} number clue
 let createRowCounts = null; // author-set outside clues (row figures)
 let createColCounts = null; // author-set outside clues (column figures)
+let createTypeCounts = null; // author-set count of each species [_,n1,n2,n3,n4]
 let cellEls = [];
 let rowHeaderEls = [];
 let colHeaderEls = [];
@@ -470,25 +471,44 @@ function makePalBtn(kind) {
     btn.innerHTML = creatureIcon(PLACEHOLDER);
     btn.setAttribute('aria-label', 'Unidentified animal');
   } else {
-    // creatures carry a "remaining" counter only when the mode has target counts
-    const counted = state.mode === 'play' || state.mode === 'solved' || state.mode === 'generating';
-    btn.innerHTML = creatureIcon(kind) + (counted ? '<span class="pal-count" data-count="' + kind + '"></span>' : '');
+    // play/test creature: a "remaining" counter (updateFeedback fills it when
+    // the puzzle carries target counts)
+    btn.innerHTML = creatureIcon(kind) + '<span class="pal-count" data-count="' + kind + '"></span>';
     btn.setAttribute('aria-label', 'Creature with ' + kind + ' horns');
   }
   btn.addEventListener('click', () => selectType(kind));
   return btn;
 }
 
+// Create-mode species stepper: tap to set how many of that species the
+// authored garden holds (0..9, wraps). Not a placement tool.
+function makeStepperBtn(t) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'pal-btn stepper';
+  btn.dataset.type = 'count' + t;
+  btn.innerHTML = creatureIcon(t) + '<span class="pal-count step">' + createTypeCounts[t] + '</span>';
+  btn.setAttribute('aria-label', 'How many ' + t + '-horn creatures the garden holds (tap to change)');
+  btn.addEventListener('click', () => {
+    createTypeCounts[t] = (createTypeCounts[t] + 1) % 10;
+    btn.querySelector('.pal-count').textContent = createTypeCounts[t];
+  });
+  return btn;
+}
+
 function buildPalette() {
   paletteEl.innerHTML = '';
   if (state.mode === 'create') {
-    // authoring tools: place numbers, flowers, or erase — no animals
-    const row = document.createElement('div');
-    row.className = 'pal-row';
-    row.appendChild(makePalBtn('clue'));
-    row.appendChild(makePalBtn('flower'));
-    row.appendChild(makePalBtn('erase'));
-    paletteEl.append(row);
+    // top: how many of each species the garden holds; bottom: authoring tools
+    const row1 = document.createElement('div');
+    row1.className = 'pal-row';
+    for (let t = 1; t <= 4; t++) row1.appendChild(makeStepperBtn(t));
+    const row2 = document.createElement('div');
+    row2.className = 'pal-row';
+    row2.appendChild(makePalBtn('clue'));
+    row2.appendChild(makePalBtn('flower'));
+    row2.appendChild(makePalBtn('erase'));
+    paletteEl.append(row1, row2);
   } else {
     const row1 = document.createElement('div');
     row1.className = 'pal-row';
@@ -813,6 +833,7 @@ function enterCreate() {
   createGrid = blankGrid(size);
   createRowCounts = new Array(size).fill(0);
   createColCounts = new Array(size).fill(0);
+  createTypeCounts = [0, 0, 0, 0, 0];
   resumeCreate();
 }
 
@@ -836,6 +857,9 @@ function clearCreate() {
   createGrid = blankGrid(size);
   createRowCounts = new Array(size).fill(0);
   createColCounts = new Array(size).fill(0);
+  createTypeCounts = [0, 0, 0, 0, 0];
+  buildPalette();
+  selectType('clue');
   renderCreateAll();
 }
 
@@ -942,7 +966,8 @@ function enterTest() {
     flowerCells,
     rowCounts: createRowCounts.slice(),
     colCounts: createColCounts.slice(),
-    // no typeCounts, no solution: only the visible clues the author drew
+    typeCounts: { 1: createTypeCounts[1], 2: createTypeCounts[2], 3: createTypeCounts[3], 4: createTypeCounts[4] },
+    // no hidden solution: only the visible clues the author drew
   };
   userGrid = blankGrid(size);
   state.mode = 'test';
