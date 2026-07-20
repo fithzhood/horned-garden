@@ -388,6 +388,38 @@ h1 {
   font-weight: 700;
 }
 
+.erase-glyph {
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.pal-cap {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+#create-hint {
+  display: none;
+  margin: 0;
+  max-width: 340px;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.app.create #create-hint { display: block; }
+
+.col-header.editable, .row-header.editable {
+  cursor: pointer;
+  border-radius: 7px;
+  border: 1px dashed var(--gold-dim);
+}
+
+.col-header.editable:hover, .row-header.editable:hover { border-color: var(--gold); }
+
 #palette {
   display: flex;
   flex-direction: column;

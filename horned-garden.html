@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500&display=swap">
-  <link rel="stylesheet" href="horned-garden.css?v=7">
+  <link rel="stylesheet" href="horned-garden.css?v=8">
 </head>
 <body>
   <span class="vine tr" aria-hidden="true">❦</span>
@@ -37,6 +37,8 @@
       </div>
     </div>
 
+    <p id="create-hint">Tap the outside squares to set row &amp; column counts · tap a number cell again to raise it</p>
+
     <div id="palette"></div>
 
     <div class="actions" id="actions"></div>
@@ -53,13 +55,13 @@
           <li>The hornless <strong>?</strong> animal is a placeholder: an animal you have not identified yet. It counts as an animal on the board, but the garden only blooms once every <strong>?</strong> has been given its horns.</li>
           <li>Select the <strong>dark flower</strong> to mark squares that hold no creature. It is only a note: it does not affect the rules.</li>
           <li>Every generated puzzle has exactly <strong>one solution</strong>. The moment the whole garden obeys every rule, it blooms.</li>
-          <li>Tap <strong>✎ Create</strong> to build your own garden: place creatures, flowers and number clues, then <strong>▶ Test</strong> to play it freely. In your own gardens there are no checks — the design is yours.</li>
+          <li>Tap <strong>✎ Create</strong> to design your own garden: place the number clues and flowers, and tap the outside squares to set the row &amp; column counts — you don't place the animals, only the clues. Then hit <strong>▶ Test</strong> to try solving your scheme. Authored gardens have no checks — anything goes.</li>
         </ul>
         <button type="button" id="rules-close" class="btn primary">Got it</button>
       </div>
     </div>
   </div>
 
-  <script src="horned-garden.js?v=7"></script>
+  <script src="horned-garden.js?v=8"></script>
 </body>
 </html>

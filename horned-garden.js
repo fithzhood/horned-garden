@@ -398,7 +398,9 @@ function headerGlyphs(count) {
 const state = { difficulty: 'easy', selectedType: 1, mode: 'generating' };
 let puzzle = null;      // active puzzle in play/test
 let userGrid = null;    // player's placements in play/test
-let createGrid = null;  // authoring grid in create: 0 empty, 1-4 creature, 'F' flower, 'C' clue
+let createGrid = null;      // authoring grid: 0 empty, 'F' flower, {v:n} number clue
+let createRowCounts = null; // author-set outside clues (row figures)
+let createColCounts = null; // author-set outside clues (column figures)
 let cellEls = [];
 let rowHeaderEls = [];
 let colHeaderEls = [];
@@ -456,16 +458,21 @@ function makePalBtn(kind) {
     btn.innerHTML = '<span class="mark-glyph">❀</span>';
     btn.setAttribute('aria-label', 'Mark empty square');
   } else if (kind === 'flower') {
-    btn.innerHTML = '<span class="flower-glyph">❀</span>';
+    btn.innerHTML = '<span class="flower-glyph">❀</span><span class="pal-cap">Flower</span>';
     btn.setAttribute('aria-label', 'Place a flower');
   } else if (kind === 'clue') {
-    btn.innerHTML = '<span class="clue-glyph">∑</span>';
-    btn.setAttribute('aria-label', 'Place a number clue');
+    btn.innerHTML = '<span class="clue-glyph">＃</span><span class="pal-cap">Number</span>';
+    btn.setAttribute('aria-label', 'Place a number clue (tap again to raise it)');
+  } else if (kind === 'erase') {
+    btn.innerHTML = '<span class="erase-glyph">⌫</span><span class="pal-cap">Erase</span>';
+    btn.setAttribute('aria-label', 'Erase a cell');
   } else if (kind === PLACEHOLDER) {
     btn.innerHTML = creatureIcon(PLACEHOLDER);
     btn.setAttribute('aria-label', 'Unidentified animal');
   } else {
-    btn.innerHTML = creatureIcon(kind) + '<span class="pal-count" data-count="' + kind + '"></span>';
+    // creatures carry a "remaining" counter only when the mode has target counts
+    const counted = state.mode === 'play' || state.mode === 'solved' || state.mode === 'generating';
+    btn.innerHTML = creatureIcon(kind) + (counted ? '<span class="pal-count" data-count="' + kind + '"></span>' : '');
     btn.setAttribute('aria-label', 'Creature with ' + kind + ' horns');
   }
   btn.addEventListener('click', () => selectType(kind));
@@ -474,19 +481,24 @@ function makePalBtn(kind) {
 
 function buildPalette() {
   paletteEl.innerHTML = '';
-  const row1 = document.createElement('div');
-  row1.className = 'pal-row';
-  for (let t = 1; t <= 4; t++) row1.appendChild(makePalBtn(t));
-  const row2 = document.createElement('div');
-  row2.className = 'pal-row';
   if (state.mode === 'create') {
-    row2.appendChild(makePalBtn('flower'));
-    row2.appendChild(makePalBtn('clue'));
+    // authoring tools: place numbers, flowers, or erase — no animals
+    const row = document.createElement('div');
+    row.className = 'pal-row';
+    row.appendChild(makePalBtn('clue'));
+    row.appendChild(makePalBtn('flower'));
+    row.appendChild(makePalBtn('erase'));
+    paletteEl.append(row);
   } else {
+    const row1 = document.createElement('div');
+    row1.className = 'pal-row';
+    for (let t = 1; t <= 4; t++) row1.appendChild(makePalBtn(t));
+    const row2 = document.createElement('div');
+    row2.className = 'pal-row';
     row2.appendChild(makePalBtn(PLACEHOLDER));
     row2.appendChild(makePalBtn('mark'));
+    paletteEl.append(row1, row2);
   }
-  paletteEl.append(row1, row2);
   paletteBtns = Array.from(paletteEl.querySelectorAll('.pal-btn'));
 }
 
@@ -680,15 +692,19 @@ function updateFeedback() {
     colHeaderEls[c].classList.toggle('over', over);
     if (puzzle.colCounts[c] === 0) colHeaderEls[c].textContent = over ? '✕' : '';
   }
-  for (let t = 1; t <= 4; t++) {
-    const el = document.querySelector('[data-count="' + t + '"]');
-    if (!el) continue;
-    const remaining = puzzle.typeCounts[t] - typeUsed[t]; // animals of this type still to place
-    el.textContent = remaining;
-    el.classList.toggle('over', remaining < 0);
-    const done = remaining === 0 && puzzle.typeCounts[t] > 0;
-    el.classList.toggle('done', done);
-    el.closest('.pal-btn').classList.toggle('done', done);
+  // per-type "remaining" counters only exist when the puzzle carries target
+  // counts (generated puzzles); authored/test puzzles have none.
+  if (puzzle.typeCounts) {
+    for (let t = 1; t <= 4; t++) {
+      const el = document.querySelector('[data-count="' + t + '"]');
+      if (!el) continue;
+      const remaining = puzzle.typeCounts[t] - typeUsed[t];
+      el.textContent = remaining;
+      el.classList.toggle('over', remaining < 0);
+      const done = remaining === 0 && puzzle.typeCounts[t] > 0;
+      el.classList.toggle('done', done);
+      el.closest('.pal-btn').classList.toggle('done', done);
+    }
   }
   for (const key of Object.keys(puzzle.clueCells)) {
     const parts = key.split(',');
@@ -793,7 +809,10 @@ function resetPuzzle() {
 /* ===================== Create ===================== */
 
 function enterCreate() {
-  createGrid = blankGrid(DIFFICULTIES[state.difficulty].size);
+  const size = DIFFICULTIES[state.difficulty].size;
+  createGrid = blankGrid(size);
+  createRowCounts = new Array(size).fill(0);
+  createColCounts = new Array(size).fill(0);
   resumeCreate();
 }
 
@@ -807,13 +826,16 @@ function resumeCreate() {
   bannerEl.hidden = true;
   sliderEl.disabled = false;
   buildPalette();
-  selectType(1);
+  selectType('clue');
   buildActions();
   buildCreateBoard();
 }
 
 function clearCreate() {
-  createGrid = blankGrid(DIFFICULTIES[state.difficulty].size);
+  const size = DIFFICULTIES[state.difficulty].size;
+  createGrid = blankGrid(size);
+  createRowCounts = new Array(size).fill(0);
+  createColCounts = new Array(size).fill(0);
   renderCreateAll();
 }
 
@@ -831,13 +853,15 @@ function buildCreateBoard() {
   gridEl.appendChild(corner);
   for (let c = 0; c < size; c++) {
     const h = document.createElement('div');
-    h.className = 'col-header';
+    h.className = 'col-header editable';
+    h.addEventListener('click', () => bumpColCount(c));
     colHeaderEls.push(h);
     gridEl.appendChild(h);
   }
   for (let r = 0; r < size; r++) {
     const h = document.createElement('div');
-    h.className = 'row-header';
+    h.className = 'row-header editable';
+    h.addEventListener('click', () => bumpRowCount(r));
     rowHeaderEls.push(h);
     gridEl.appendChild(h);
     const rowEls = [];
@@ -854,79 +878,72 @@ function buildCreateBoard() {
   renderCreateAll();
 }
 
+// The author sets everything by hand: number clues, flowers and the outside
+// row/column counts. Nothing is derived and nothing is checked.
 function handleCreateClick(r, c) {
   const cur = createGrid[r][c];
   const sel = state.selectedType;
-  let val;
-  if (sel === 'flower') val = 'F';
-  else if (sel === 'clue') val = 'C';
-  else val = sel; // 1-4
-  createGrid[r][c] = (cur === val) ? 0 : val;
-  // clue values depend on neighbouring creatures, so refresh the whole board
-  renderCreateAll();
+  if (sel === 'erase') {
+    createGrid[r][c] = 0;
+  } else if (sel === 'flower') {
+    createGrid[r][c] = (cur === 'F') ? 0 : 'F';
+  } else if (sel === 'clue') {
+    if (cur && typeof cur === 'object') cur.v = cur.v >= 24 ? 0 : cur.v + 1; // tap again to raise
+    else createGrid[r][c] = { v: 0 };
+  }
+  renderCreateCell(r, c);
 }
 
-function createClueValue(r, c) {
-  let s = 0;
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      if (dr === 0 && dc === 0) continue;
-      const nr = r + dr, nc = c + dc;
-      if (nr < 0 || nc < 0 || nr >= createGrid.length || nc >= createGrid.length) continue;
-      const nv = createGrid[nr][nc];
-      if (nv >= 1 && nv <= 4) s += nv;
-    }
-  }
-  return s;
+function bumpRowCount(r) {
+  const size = createGrid.length;
+  createRowCounts[r] = (createRowCounts[r] + 1) % (size + 1);
+  rowHeaderEls[r].innerHTML = headerGlyphs(createRowCounts[r]);
+}
+
+function bumpColCount(c) {
+  const size = createGrid.length;
+  createColCounts[c] = (createColCounts[c] + 1) % (size + 1);
+  colHeaderEls[c].innerHTML = headerGlyphs(createColCounts[c]);
+}
+
+function renderCreateCell(r, c) {
+  const el = cellEls[r][c];
+  const v = createGrid[r][c];
+  if (v === 'F') { el.className = 'cell flower'; el.textContent = '❀'; }
+  else if (v && typeof v === 'object') { el.className = 'cell clue'; el.textContent = v.v; }
+  else { el.className = 'cell'; el.innerHTML = ''; }
 }
 
 function renderCreateAll() {
   const size = createGrid.length;
-  const rowC = new Array(size).fill(0);
-  const colC = new Array(size).fill(0);
   for (let r = 0; r < size; r++) {
-    for (let c = 0; c < size; c++) {
-      if (createGrid[r][c] >= 1 && createGrid[r][c] <= 4) { rowC[r]++; colC[c]++; }
-    }
+    for (let c = 0; c < size; c++) renderCreateCell(r, c);
   }
-  for (let r = 0; r < size; r++) {
-    for (let c = 0; c < size; c++) {
-      const el = cellEls[r][c];
-      const v = createGrid[r][c];
-      if (v >= 1 && v <= 4) { el.className = 'cell'; el.innerHTML = creatureIcon(v); }
-      else if (v === 'F') { el.className = 'cell flower'; el.textContent = '❀'; }
-      else if (v === 'C') { el.className = 'cell clue'; el.textContent = createClueValue(r, c); }
-      else { el.className = 'cell'; el.innerHTML = ''; }
-    }
-  }
-  for (let r = 0; r < size; r++) rowHeaderEls[r].innerHTML = headerGlyphs(rowC[r]);
-  for (let c = 0; c < size; c++) colHeaderEls[c].innerHTML = headerGlyphs(colC[c]);
+  for (let r = 0; r < size; r++) rowHeaderEls[r].innerHTML = headerGlyphs(createRowCounts[r]);
+  for (let c = 0; c < size; c++) colHeaderEls[c].innerHTML = headerGlyphs(createColCounts[c]);
 }
 
-// Build a playable puzzle from the authored grid — no feasibility or
-// uniqueness check, the author owns the design — and free-play it.
+// Build a playable board straight from the authored clues — no hidden
+// solution, no feasibility or uniqueness check — and free-play it.
 function enterTest() {
   const size = createGrid.length;
-  const solution = blankGrid(size);
   const clueCells = {};
   const flowerCells = {};
-  const rowCounts = new Array(size).fill(0);
-  const colCounts = new Array(size).fill(0);
-  const typeCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       const v = createGrid[r][c];
-      if (v >= 1 && v <= 4) { solution[r][c] = v; rowCounts[r]++; colCounts[c]++; typeCounts[v]++; }
+      if (v === 'F') flowerCells[r + ',' + c] = true;
+      else if (v && typeof v === 'object') clueCells[r + ',' + c] = v.v;
     }
   }
-  for (let r = 0; r < size; r++) {
-    for (let c = 0; c < size; c++) {
-      const v = createGrid[r][c];
-      if (v === 'C') clueCells[r + ',' + c] = createClueValue(r, c);
-      else if (v === 'F') flowerCells[r + ',' + c] = true;
-    }
-  }
-  puzzle = { size, solution, clueCells, flowerCells, rowCounts, colCounts, typeCounts };
+  puzzle = {
+    size,
+    clueCells,
+    flowerCells,
+    rowCounts: createRowCounts.slice(),
+    colCounts: createColCounts.slice(),
+    // no typeCounts, no solution: only the visible clues the author drew
+  };
   userGrid = blankGrid(size);
   state.mode = 'test';
   appEl.classList.remove('create', 'solved', 'generating');
