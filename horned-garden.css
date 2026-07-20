@@ -129,7 +129,7 @@ h1 {
 }
 
 #difficulty {
-  width: 210px;
+  width: 260px;
   accent-color: var(--gold);
   touch-action: manipulation;
 }
@@ -137,11 +137,15 @@ h1 {
 .diff-labels {
   display: flex;
   justify-content: space-between;
-  width: 220px;
+  width: 274px;
   font-size: 0.72rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
   color: var(--muted);
 }
+
+.diff-labels span { flex: 1; text-align: center; }
+.diff-labels span:first-child { text-align: left; }
+.diff-labels span:last-child { text-align: right; }
 
 .diff-labels span.active { color: var(--gold-bright); font-weight: 700; }
 

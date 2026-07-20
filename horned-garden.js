@@ -2,13 +2,16 @@
 
 /* ===================== Difficulty config ===================== */
 
+// Keyed by grid size; the slider offers every size from 6x6 to 10x10.
 const DIFFICULTIES = {
-  easy:   { size: 6,  animals: 6,  flowers: 3 },
-  medium: { size: 8,  animals: 10, flowers: 4 },
-  hard:   { size: 10, animals: 15, flowers: 5 },
+  6:  { size: 6,  animals: 6,  flowers: 3 },
+  7:  { size: 7,  animals: 8,  flowers: 3 },
+  8:  { size: 8,  animals: 10, flowers: 4 },
+  9:  { size: 9,  animals: 13, flowers: 4 },
+  10: { size: 10, animals: 15, flowers: 5 },
 };
 
-const DIFFICULTY_ORDER = ['easy', 'medium', 'hard'];
+const DIFFICULTY_ORDER = [6, 7, 8, 9, 10];
 
 /* ===================== Solver ===================== */
 
@@ -324,7 +327,7 @@ function testSolver() {
 }
 
 function testGenerate(difficulty) {
-  const d = difficulty || 'easy';
+  const d = difficulty || 6;
   const t0 = performance.now();
   const p = generatePuzzle(d);
   const ms = Math.round(performance.now() - t0);
@@ -395,7 +398,7 @@ function headerGlyphs(count) {
 /* ===================== UI ===================== */
 
 // state.mode: 'generating' | 'play' | 'solved' | 'create' | 'test'
-const state = { difficulty: 'easy', selectedType: 1, mode: 'generating' };
+const state = { difficulty: 6, selectedType: 1, mode: 'generating' };
 let puzzle = null;      // active puzzle in play/test
 let userGrid = null;    // player's placements in play/test
 let createGrid = null;      // authoring grid: 0 empty, 'F' flower, {v:n} number clue
