@@ -598,7 +598,7 @@ function startNewPuzzle() {
     statusEl.hidden = true;
     sliderEl.disabled = false;
     buildPalette();
-    selectType(1);
+    selectType('mark'); // start on the note flower
     buildActions();
     buildBoard();
     updateFeedback();
